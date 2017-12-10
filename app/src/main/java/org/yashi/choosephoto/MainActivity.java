@@ -2,13 +2,9 @@ package org.yashi.choosephoto;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.ImageFormat;
-import android.graphics.Matrix;
-import android.graphics.PixelFormat;
-import android.graphics.Rect;
-import android.graphics.YuvImage;
+import android.graphics.Color;
+import android.media.Image;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -16,48 +12,90 @@ import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.ImageButton;
+import android.widget.GridView;
+import android.widget.ImageView;
+import android.widget.SimpleAdapter;
 import android.hardware.Camera;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 import android.view.Display;
+import android.widget.TextView;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.Console;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback{
 
-    private static final String TAG = "ChrisAcvitity";
+    //private static final String kNAME = "KagurazakaYashi";
     private Camera mCamera;
     private SurfaceHolder mHolder;
     private SurfaceView mView;
+    private View surfaceBoxView;
+    private GridView photoGridView;
+    final ArrayList<Bitmap> photos = new ArrayList<Bitmap>();
+    private List<Map<String, Object>> data_list;
+    private SimpleAdapter sim_adapter;
+    private ImageCompress imagecompress = new ImageCompress();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        surfaceBoxView = (TextView) findViewById(R.id.surfaceBoxView);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         toolbar.setTitle("百里挑一");
         setSupportActionBar(toolbar);
         mView = (SurfaceView) findViewById(R.id.surfaceView);
+        mHolder = mView.getHolder();
+        mHolder.addCallback(this);
+        photos.clear();
+
+        rl();
+
         mView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mCamera.takePicture(null, null , myjpegCallback);
+                mView.setAlpha(0);
+                mCamera.takePicture(null, null , picCallback);
+                rl();
+                mView.setAlpha(1);
             }
         });
-        mHolder = mView.getHolder();
-        mHolder.addCallback(this);
     }
-    Camera.PictureCallback myjpegCallback = new Camera.PictureCallback() {
+    public void rl() {
+        data_list = new ArrayList<Map<String, Object>>();
+        getData();
+        String [] from = {"image"};
+        int [] to = {R.id.image};
+        sim_adapter = new SimpleAdapter(this, data_list, R.layout.item, from, to);
+        photoGridView = (GridView) findViewById(R.id.photoGridView);
+        photoGridView.setAdapter(sim_adapter);
+    }
+    public List<Map<String, Object>> getData(){
+        for(int i = 0; i < photos.size(); i++) {
+            Bitmap nowPhoto = photos.get(i);
+            Map<String, Object> map = new HashMap<String, Object>();
+            ImageView imgV = new ImageView(this);
+            imgV.setImageBitmap(nowPhoto);
+            map.put("image", imgV);
+            data_list.add(map);
+        }
+        return data_list;
+    }
+    Camera.PictureCallback picCallback = new Camera.PictureCallback() {
         public void onPictureTaken(byte[] data, Camera camera) {
-            final Bitmap bitmap = BitmapFactory.decodeByteArray(data
-                    , 0, data.length);
-            //ImageView show = (ImageView) saveDialog.findViewById(R.id.show);
-            //show.setImageBitmap(bitmap);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+            photos.add(imagecompress.comp(bitmap));
+            bitmap.recycle();
             camera.stopPreview();
             camera.startPreview();
         }
@@ -97,15 +135,19 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         });
         */
         mCamera.startPreview();
-        mCamera.autoFocus(afcb);
-    }
-    Camera.AutoFocusCallback afcb=new Camera.AutoFocusCallback() {
-        public void onAutoFocus(boolean success, Camera camera) {
-            if(success){
-                //System.out.println("对焦完成");
+        mCamera.autoFocus(new Camera.AutoFocusCallback()
+        {
+            @Override
+            public void onAutoFocus(boolean success, Camera camera)
+            {
+                if(success){
+                    surfaceBoxView.setBackgroundColor(Color.GREEN);
+                } else {
+                    surfaceBoxView.setBackgroundColor(Color.RED);
+                }
             }
-        }
-    };
+        });
+    }
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height){
         refreshCamera();
         int rotation = getDisplayOrientation(); //窗口方向
@@ -192,7 +234,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private Camera.PictureCallback jpegCallback = new Camera.PictureCallback(){
-
         public void onPictureTaken(byte[] data, Camera camera) {
             Camera.Parameters ps = camera.getParameters();
 
