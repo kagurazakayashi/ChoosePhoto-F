@@ -1,43 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
-// import 'package:video_player/video_player.dart';
 import 'dart:async';
 import 'dart:io';
-
-// void main() => runApp(MyApp());
 
 List<CameraDescription> cameras;
 
 Future<void> main() async {
-  // Fetch the available cameras before initializing the app.
   try {
     cameras = await availableCameras();
   } on CameraException catch (e) {
     logError(e.code, e.description);
   }
   runApp(CameraApp());
-}
-
-// class MyApp extends StatelessWidget {
-//   // This widget is the root of your application.
-//   @override
-//   Widget build(BuildContext context) {
-//     return MaterialApp(
-//       title: 'Flutter Demo',
-//       theme: ThemeData(
-//         primarySwatch: Colors.blue,
-//       ),
-//       home: MyHomePage(title: 'Flutter Demo Home Page'),
-//     );
-//   }
-// }
-
-class CameraExampleHome extends StatefulWidget {
-  @override
-  _CameraExampleHomeState createState() {
-    return _CameraExampleHomeState();
-  }
 }
 
 IconData getCameraLensIcon(CameraLensDirection direction) {
@@ -55,41 +30,40 @@ IconData getCameraLensIcon(CameraLensDirection direction) {
 void logError(String code, String message) =>
     print('Error: $code\nError Message: $message');
 
-class _CameraExampleHomeState extends State<CameraExampleHome> {
+/*
+ * @msg: 摄像头状态类
+ */
+class CameraHome extends StatefulWidget {
+  @override
+  _CameraHomeState createState() {
+    return _CameraHomeState();
+  }
+}
+class _CameraHomeState extends State<CameraHome> {
   CameraController controller;
   String imagePath;
   String videoPath;
-  // VideoPlayerController videoController;
   VoidCallback videoPlayerListener;
 
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  var widthcount = 2;
+  var dataarr = ["没有照片"];
+  var imgdir = "";
 
-  // @override
-  // void initState() {
-  //   main11();
-  //   super.initState();
-  // }
-  // main11() async {
-  //   // Fetch the available cameras before initializing the app.
-  //   try {
-  //     cameras = await availableCameras();
-  //   } on CameraException catch (e) {
-  //     logError(e.code, e.description);
-  //   }
-  //   // runApp(CameraApp());
-  // }
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  @override
+  void initState() {
+    listfiles();
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      // appBar: AppBar(
-      //   title: const Text('Camera example'),
-      // ),
       body: Column(
         children: <Widget>[
           Container(
-            height: 500,
+            height: 300,
             child: Column(
               children: <Widget>[
                 Expanded(
@@ -112,34 +86,48 @@ class _CameraExampleHomeState extends State<CameraExampleHome> {
                     ),
                   ),
                 ),
-                Row(
-                  children: <Widget>[
-                    _captureControlRowWidget(),
-                    _cameraTogglesRowWidget(),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: <Widget>[
-                      // _cameraTogglesRowWidget(),
-                      _thumbnailWidget(),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
           Container(
-            child: _thumbnailWidgetBig(100.0),
-          )
+            height: 200,
+            child: createGridView(),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: <Widget>[
+              _captureControlRowWidget(),
+              _cameraTogglesRowWidget(),
+              // _thumbnailWidget(),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  /// Display the preview from the camera (or a message if the preview is not available).
+  Widget createGridView() {
+    return new GridView.count(
+      padding: const EdgeInsets.all(5.0),
+      mainAxisSpacing: 5.0,
+      crossAxisSpacing: 5.0,
+      childAspectRatio: 1.0,
+      crossAxisCount: widthcount,
+      children: dataarr.map((var nowdata) {
+        return nowdata != "没有照片" ? Image.file(File(nowdata)) : Text(nowdata);
+        // return Text(nowdata);
+      }).toList(),
+    );
+  }
+
+  Widget _buildRow(String suggestions) {
+    return Container(
+        height: 100,
+        width: 100,
+        color: Colors.yellow,
+        child: Text(suggestions));
+  }
+
   Widget _cameraPreviewWidget() {
     if (controller == null || !controller.value.isInitialized) {
       return const Text(
@@ -158,7 +146,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome> {
     }
   }
 
-  /// Display the thumbnail of the captured image or video.
   Widget _thumbnailWidget() {
     return Expanded(
       child: Align(
@@ -174,15 +161,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome> {
     );
   }
 
-  /// Display the thumbnail of the captured image or video.
-  Widget _thumbnailWidgetBig(double size) {
+  Widget _thumbnailWidgetBig(String picpush, double size) {
     return Expanded(
       child: Align(
         alignment: Alignment.centerLeft,
         child: imagePath == null
             ? null
             : SizedBox(
-                child: Image.file(File(imagePath)),
+                child: Image.file(File(picpush)),
                 width: size,
                 height: size,
               ),
@@ -190,7 +176,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome> {
     );
   }
 
-  /// Display the control bar with buttons to take pictures and record videos.
   Widget _captureControlRowWidget() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -205,24 +190,6 @@ class _CameraExampleHomeState extends State<CameraExampleHome> {
               ? onTakePictureButtonPressed
               : null,
         ),
-        // IconButton(
-        //   icon: const Icon(Icons.videocam),
-        //   color: Colors.blue,
-        //   onPressed: controller != null &&
-        //           controller.value.isInitialized &&
-        //           !controller.value.isRecordingVideo
-        //       ? onVideoRecordButtonPressed
-        //       : null,
-        // ),
-        // IconButton(
-        //   icon: const Icon(Icons.stop),
-        //   color: Colors.red,
-        //   onPressed: controller != null &&
-        //           controller.value.isInitialized &&
-        //           controller.value.isRecordingVideo
-        //       ? onStopButtonPressed
-        //       : null,
-        // )
       ],
     );
   }
@@ -260,17 +227,21 @@ class _CameraExampleHomeState extends State<CameraExampleHome> {
     _scaffoldKey.currentState.showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /*
+   * @msg: 切换摄像头
+   * @param {CameraDescription} 摄像头名称
+   * @return: void
+   */
   void onNewCameraSelected(CameraDescription cameraDescription) async {
     if (controller != null) {
       await controller.dispose();
     }
     controller = CameraController(cameraDescription, ResolutionPreset.high);
 
-    // If the controller is updated then update the UI.
     controller.addListener(() {
       if (mounted) setState(() {});
       if (controller.value.hasError) {
-        showInSnackBar('Camera error ${controller.value.errorDescription}');
+        showInSnackBar('错误：摄像头发生问题，${controller.value.errorDescription}');
       }
     });
 
@@ -285,97 +256,64 @@ class _CameraExampleHomeState extends State<CameraExampleHome> {
     }
   }
 
+  /*
+   * @msg: 拍照按钮被按下
+   * @return: void
+   */
   void onTakePictureButtonPressed() {
     takePicture().then((String filePath) {
       if (mounted) {
         setState(() {
           imagePath = filePath;
-          // videoController?.dispose();
-          // videoController = null;
+          if (dataarr.length == 1 && dataarr[0] == "没有照片") {
+            dataarr[0] = filePath;
+          } else {
+            dataarr.add(filePath);
+          }
         });
         if (filePath != null) showInSnackBar('Picture saved to $filePath');
       }
     });
   }
 
-  // void onVideoRecordButtonPressed() {
-  //   startVideoRecording().then((String filePath) {
-  //     if (mounted) setState(() {});
-  //     if (filePath != null) showInSnackBar('Saving video to $filePath');
-  //   });
-  // }
+  /*
+  * @msg: 取得临时文件夹中的照片
+  * @return: void (保存至属性 dataarr )
+  */
+  listfiles() async {
+    final Directory extDir = await getApplicationDocumentsDirectory();
+    final String dirPath = '${extDir.path}/Pictures/flutter_test';
+    await Directory(dirPath).create(recursive: true);
+    var dir = Directory(dirPath);
+    var dirList = dir.list();
+    try {
+      await for (FileSystemEntity f in dirList) {
+        // i++;
+        if (f is File) {
+          if (dataarr[0] == "没有照片") {
+            setState(() {
+              dataarr[0] = f.path.toString();
+            });
+          } else {
+            setState(() {
+              dataarr.add(f.path.toString());
+            });
+          }
+          print('已有文件 ${f.path}');
+        } else if (f is Directory) {
+          print('已有文件夹 ${f.path}');
+        }
+      }
+    } catch (e) {
+      print("错误：取得临时文件夹中的照片没有成功。");
+      print(e.toString());
+    }
+  }
 
-  // void onStopButtonPressed() {
-  //   stopVideoRecording().then((_) {
-  //     if (mounted) setState(() {});
-  //     showInSnackBar('Video recorded to: $videoPath');
-  //   });
-  // }
-
-  // Future<String> startVideoRecording() async {
-  //   if (!controller.value.isInitialized) {
-  //     showInSnackBar('Error: select a camera first.');
-  //     return null;
-  //   }
-
-  //   final Directory extDir = await getApplicationDocumentsDirectory();
-  //   final String dirPath = '${extDir.path}/Movies/flutter_test';
-  //   await Directory(dirPath).create(recursive: true);
-  //   final String filePath = '$dirPath/${timestamp()}.mp4';
-
-  //   if (controller.value.isRecordingVideo) {
-  //     // A recording is already started, do nothing.
-  //     return null;
-  //   }
-
-  //   try {
-  //     videoPath = filePath;
-  //     await controller.startVideoRecording(filePath);
-  //   } on CameraException catch (e) {
-  //     _showCameraException(e);
-  //     return null;
-  //   }
-  //   return filePath;
-  // }
-
-  // Future<void> stopVideoRecording() async {
-  //   if (!controller.value.isRecordingVideo) {
-  //     return null;
-  //   }
-
-  //   try {
-  //     await controller.stopVideoRecording();
-  //   } on CameraException catch (e) {
-  //     _showCameraException(e);
-  //     return null;
-  //   }
-
-  //   await _startVideoPlayer();
-  // }
-
-  // Future<void> _startVideoPlayer() async {
-  //   final VideoPlayerController vcontroller =
-  //       VideoPlayerController.file(File(videoPath));
-  //   videoPlayerListener = () {
-  //     if (videoController != null && videoController.value.size != null) {
-  //       // Refreshing the state to update video player with the correct ratio.
-  //       if (mounted) setState(() {});
-  //       videoController.removeListener(videoPlayerListener);
-  //     }
-  //   };
-  //   vcontroller.addListener(videoPlayerListener);
-  //   await vcontroller.setLooping(true);
-  //   await vcontroller.initialize();
-  //   await videoController?.dispose();
-  //   if (mounted) {
-  //     setState(() {
-  //       imagePath = null;
-  //       videoController = vcontroller;
-  //     });
-  //   }
-  //   await vcontroller.play();
-  // }
-
+  /*
+   * @msg: 拍摄照片并保存到文件
+   * @return: Future<String> (文件路径)
+   */
   Future<String> takePicture() async {
     if (!controller.value.isInitialized) {
       showInSnackBar('Error: select a camera first.');
@@ -405,14 +343,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome> {
     showInSnackBar('Error: ${e.code}\n${e.description}');
   }
 }
-
+/*
+ * @msg: 初始化
+ */
 class CameraApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: CameraExampleHome(),
+      home: CameraHome(),
     );
   }
 }
-
-
