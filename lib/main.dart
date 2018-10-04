@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 
 List<CameraDescription> cameras;
+bool isCameraInited = false;
 
 Future<void> main() async {
   try {
@@ -12,6 +13,7 @@ Future<void> main() async {
   } on CameraException catch (e) {
     logError(e.code, e.description);
   }
+  isCameraInited = true;
   runApp(CameraApp());
 }
 
@@ -39,6 +41,7 @@ class CameraHome extends StatefulWidget {
     return _CameraHomeState();
   }
 }
+
 class _CameraHomeState extends State<CameraHome> {
   CameraController controller;
   String imagePath;
@@ -48,11 +51,19 @@ class _CameraHomeState extends State<CameraHome> {
   var widthcount = 2;
   var dataarr = ["没有照片"];
   var imgdir = "";
+  int navigationBarSelectedIndex = 0;
+  var nowcamera;
+  var allcamera;
+
+  //controller?.description 当前摄像头
+  //cameras 摄像头列表
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   void initState() {
     listfiles();
+    navigationBarSelectedIndex = 2;
+    onNewCameraSelected(cameras[0]);
     super.initState();
   }
 
@@ -103,9 +114,104 @@ class _CameraHomeState extends State<CameraHome> {
           ),
         ],
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+              icon: Icon(Icons.switch_camera,
+                  color: Color.fromARGB(255, 0, 0, 0)),
+              title: Text('切换',
+                  style: new TextStyle(color: const Color(0xff000000)))),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.photo_library,
+                  color: Color.fromARGB(255, 0, 0, 0)),
+              title: Text('浏览',
+                  style: new TextStyle(color: const Color(0xff000000)))),
+          BottomNavigationBarItem(
+              icon:
+                  Icon(Icons.photo_camera, color: Color.fromARGB(255, 0, 0, 0)),
+              title: Text('拍摄',
+                  style: new TextStyle(color: const Color(0xff000000)))),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.delete_forever,
+                  color: Color.fromARGB(255, 0, 0, 0)),
+              title: Text('清空',
+                  style: new TextStyle(color: const Color(0xff000000)))),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.settings, color: Color.fromARGB(255, 0, 0, 0)),
+              title: Text('设置',
+                  style: new TextStyle(color: const Color(0xff000000)))),
+        ],
+        currentIndex: navigationBarSelectedIndex,
+        fixedColor: Colors.deepPurple,
+        onTap: navigationBarItemTapped,
+      ),
     );
   }
 
+  /*
+   * @msg: navigationBar 中的按钮被点击
+   * @param {int} 按钮序号
+   * @return: void
+   */
+  void navigationBarItemTapped(int index) {
+    // setState(() {
+    // navigationBarSelectedIndex = index;
+    // });
+    switch (index) {
+      case 0: //切换
+        // print(controller.value.isInitialized);
+        // nowcamera = new CameraDescription();
+        //controller?.description 当前摄像头
+        //cameras 摄像头列表
+        // print(controller);
+        if (isCameraInited) {
+          if (controller.description == cameras[0]) {
+            onNewCameraSelected(cameras[1]);
+          } else {
+            onNewCameraSelected(cameras[0]);
+          }
+        }
+        break;
+      case 1: //浏览
+        // controller.dispose();
+        if (isCameraInited) {
+          nowcamera = new CameraDescription(name: "10");
+          isCameraInited = false;
+          controller.dispose();
+        }
+        break;
+      case 2: //拍摄
+        print("1++++++++++++++++++++++++++++++++");
+        print(cameras);
+        print("1++++++++++++++++++++++++++++++++");
+        if (!isCameraInited) {
+          print("0000000000000000000");
+          initcamera();
+        } else {
+          print("1010101010101010101");
+          if (controller.description.name == "10") {
+            onNewCameraSelected(cameras[0]);
+          } else {
+            onTakePictureButtonPressed();
+          }
+          print("2++++++++++++++++++++++++++++++++");
+          print(controller?.description);
+        }
+        break;
+      case 3: //清空
+
+        break;
+      case 4: //设置
+
+        break;
+      default:
+    }
+  }
+
+  /*
+   * @msg: 创建图片列表
+   * @return: Widget
+   */
   Widget createGridView() {
     return new GridView.count(
       padding: const EdgeInsets.all(5.0),
@@ -115,17 +221,8 @@ class _CameraHomeState extends State<CameraHome> {
       crossAxisCount: widthcount,
       children: dataarr.map((var nowdata) {
         return nowdata != "没有照片" ? Image.file(File(nowdata)) : Text(nowdata);
-        // return Text(nowdata);
       }).toList(),
     );
-  }
-
-  Widget _buildRow(String suggestions) {
-    return Container(
-        height: 100,
-        width: 100,
-        color: Colors.yellow,
-        child: Text(suggestions));
   }
 
   Widget _cameraPreviewWidget() {
@@ -202,6 +299,11 @@ class _CameraHomeState extends State<CameraHome> {
       return const Text('No camera found');
     } else {
       for (CameraDescription cameraDescription in cameras) {
+        print("++++++++++++++++++++++++++++++++");
+        print(controller?.description);
+        print(cameraDescription);
+        print(controller);
+        print("++++++++++++++++++++++++++++++++");
         toggles.add(
           SizedBox(
             width: 90.0,
@@ -209,9 +311,7 @@ class _CameraHomeState extends State<CameraHome> {
               title: Icon(getCameraLensIcon(cameraDescription.lensDirection)),
               groupValue: controller?.description,
               value: cameraDescription,
-              onChanged: controller != null && controller.value.isRecordingVideo
-                  ? null
-                  : onNewCameraSelected,
+              onChanged: controller != null ? null : onNewCameraSelected,
             ),
           ),
         );
@@ -227,15 +327,35 @@ class _CameraHomeState extends State<CameraHome> {
     _scaffoldKey.currentState.showSnackBar(SnackBar(content: Text(message)));
   }
 
+  initcamera() async {
+    print("0000000000000000000");
+    try {
+      print("1111111111111111111");
+      print("2222222222222222222");
+      isCameraInited = true;
+      print("2222222222222222222");
+      onNewCameraSelected(cameras[0]);
+      cameras = await availableCameras();
+    } on CameraException catch (e) {
+      print("EEEEEEEEEEEEEEEE");
+      logError(e.code, e.description);
+    }
+  }
+
   /*
    * @msg: 切换摄像头
    * @param {CameraDescription} 摄像头名称
    * @return: void
    */
   void onNewCameraSelected(CameraDescription cameraDescription) async {
+    print("2222222222222222222");
     if (controller != null) {
+      print("333333333333333333");
       await controller.dispose();
     }
+    print("@@@@@@@@@@@@@@@@@");
+    print(cameraDescription);
+    print("@@@@@@@@@@@@@@@@@");
     controller = CameraController(cameraDescription, ResolutionPreset.high);
 
     controller.addListener(() {
@@ -343,6 +463,7 @@ class _CameraHomeState extends State<CameraHome> {
     showInSnackBar('Error: ${e.code}\n${e.description}');
   }
 }
+
 /*
  * @msg: 初始化
  */
