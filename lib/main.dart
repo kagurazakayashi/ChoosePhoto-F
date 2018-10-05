@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
@@ -15,18 +17,6 @@ Future<void> main() async {
   }
   isCameraInited = true;
   runApp(CameraApp());
-}
-
-IconData getCameraLensIcon(CameraLensDirection direction) {
-  switch (direction) {
-    case CameraLensDirection.back:
-      return Icons.camera_rear;
-    case CameraLensDirection.front:
-      return Icons.camera_front;
-    case CameraLensDirection.external:
-      return Icons.camera;
-  }
-  throw ArgumentError('Unknown lens direction');
 }
 
 void logError(String code, String message) =>
@@ -54,6 +44,16 @@ class _CameraHomeState extends State<CameraHome> {
   int navigationBarSelectedIndex = 0;
   var nowcamera;
   var allcamera;
+  var oldcamera = 0;
+
+  final windowWidth = MediaQueryData.fromWindow(window).size.width;
+  final windowHeight = MediaQueryData.fromWindow(window).size.height;
+  final windowtopbar = MediaQueryData.fromWindow(window).padding.top;
+  var isBrowserMode = false;
+  var cameraHeight = 0.0;
+  var photolistHeight = 0.0;
+  var thumbnailsize;
+  var cameraBorder = 1.0;
 
   //controller?.description 当前摄像头
   //cameras 摄像头列表
@@ -61,39 +61,45 @@ class _CameraHomeState extends State<CameraHome> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   void initState() {
+    cameraHeight = (windowHeight - windowtopbar - kToolbarHeight) * 0.5;
     listfiles();
     navigationBarSelectedIndex = 2;
-    onNewCameraSelected(cameras[0]);
+    allcamera = cameras.length;
+        print("启动摄像头 ${oldcamera.toString()}");
+    onNewCameraSelected(cameras[oldcamera]);
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
+    photolistHeight =
+        windowHeight - windowtopbar - kToolbarHeight - cameraHeight - 5.0;
     return Scaffold(
       key: _scaffoldKey,
       body: Column(
         children: <Widget>[
           Container(
-            height: 300,
+            color: Colors.black,
+            height: windowtopbar,
+          ),
+          Container(
+            height: cameraHeight,
             child: Column(
               children: <Widget>[
                 Expanded(
                   child: Container(
-                    child: Padding(
-                      padding: const EdgeInsets.all(1.0),
-                      child: Center(
+                    child: Center(
                         child: _cameraPreviewWidget(),
                       ),
-                    ),
                     decoration: BoxDecoration(
                       color: Colors.black,
-                      border: Border.all(
-                        color: controller != null &&
-                                controller.value.isRecordingVideo
-                            ? Colors.redAccent
-                            : Colors.grey,
-                        width: 3.0,
-                      ),
+                      // border: Border.all(
+                      //   color: controller != null &&
+                      //           controller.value.isRecordingVideo
+                      //       ? Colors.redAccent
+                      //       : Colors.blue,
+                      //   width: cameraBorder,
+                      // ),
                     ),
                   ),
                 ),
@@ -101,16 +107,8 @@ class _CameraHomeState extends State<CameraHome> {
             ),
           ),
           Container(
-            height: 200,
-            child: createGridView(),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: <Widget>[
-              _captureControlRowWidget(),
-              _cameraTogglesRowWidget(),
-              // _thumbnailWidget(),
-            ],
+            height: photolistHeight,
+            child: createPhotosList(),
           ),
         ],
       ),
@@ -159,44 +157,14 @@ class _CameraHomeState extends State<CameraHome> {
     // });
     switch (index) {
       case 0: //切换
-        // print(controller.value.isInitialized);
-        // nowcamera = new CameraDescription();
-        //controller?.description 当前摄像头
-        //cameras 摄像头列表
-        // print(controller);
-        if (isCameraInited) {
-          if (controller.description == cameras[0]) {
-            onNewCameraSelected(cameras[1]);
-          } else {
-            onNewCameraSelected(cameras[0]);
-          }
-        }
+      toolbtnChangeCamera();
         break;
       case 1: //浏览
-        // controller.dispose();
-        if (isCameraInited) {
-          nowcamera = new CameraDescription(name: "10");
-          isCameraInited = false;
-          controller.dispose();
-        }
+        isBrowserMode = true;
+        toolbtnBrowser();
         break;
       case 2: //拍摄
-        print("1++++++++++++++++++++++++++++++++");
-        print(cameras);
-        print("1++++++++++++++++++++++++++++++++");
-        if (!isCameraInited) {
-          print("0000000000000000000");
-          initcamera();
-        } else {
-          print("1010101010101010101");
-          if (controller.description.name == "10") {
-            onNewCameraSelected(cameras[0]);
-          } else {
-            onTakePictureButtonPressed();
-          }
-          print("2++++++++++++++++++++++++++++++++");
-          print(controller?.description);
-        }
+        toolbtnTakePhoto();
         break;
       case 3: //清空
 
@@ -208,11 +176,71 @@ class _CameraHomeState extends State<CameraHome> {
     }
   }
 
+  void toolbtnChangeCamera() {
+        // print(controller.value.isInitialized);
+        // nowcamera = new CameraDescription();
+        //controller?.description 当前摄像头
+        //cameras 摄像头列表
+        // print(controller);
+        if (isCameraInited) {
+          oldcamera++;
+          if (oldcamera >= allcamera) oldcamera = 0;
+          // if (controller.description == cameras[0]) {
+          //   onNewCameraSelected(cameras[1]);
+          // } else {
+          //   onNewCameraSelected(cameras[0]);
+          // }
+        print("启动摄像头 ${oldcamera.toString()}");
+          onNewCameraSelected(cameras[oldcamera]);
+        } else {
+          toolbtnTakePhoto();
+        }
+        navigationBarSelectedIndex = 2;
+  }
+
+  void toolbtnBrowser() {
+    if (!isBrowserMode) {
+      setState(() {
+        cameraHeight = (windowHeight - windowtopbar - kToolbarHeight) * 0.5;
+        cameraBorder = 1.0;
+      });
+    } else {
+      if (isCameraInited) {
+        nowcamera = new CameraDescription(name: "10");
+        isCameraInited = false;
+        controller.dispose();
+      }
+      print("摄像头关闭");
+      setState(() {
+        cameraBorder = 0.0;
+        cameraHeight = 0.0;
+      });
+      navigationBarSelectedIndex = 1;
+    }
+  }
+
+  void toolbtnTakePhoto() {
+    isBrowserMode = false;
+    toolbtnBrowser();
+    if (!isCameraInited) {
+      initcamera();
+    } else {
+      if (controller.description.name == "10") {
+        print("启动摄像头 ${oldcamera.toString()}");
+        onNewCameraSelected(cameras[oldcamera]);
+      } else {
+        onTakePictureButtonPressed();
+      }
+      print(controller?.description);
+    }
+    navigationBarSelectedIndex = 2;
+  }
+
   /*
    * @msg: 创建图片列表
    * @return: Widget
    */
-  Widget createGridView() {
+  Widget createPhotosList() {
     return new GridView.count(
       padding: const EdgeInsets.all(5.0),
       mainAxisSpacing: 5.0,
@@ -228,7 +256,7 @@ class _CameraHomeState extends State<CameraHome> {
   Widget _cameraPreviewWidget() {
     if (controller == null || !controller.value.isInitialized) {
       return const Text(
-        'Tap a camera',
+        '等待摄像头启动',
         style: TextStyle(
           color: Colors.white,
           fontSize: 24.0,
@@ -273,54 +301,6 @@ class _CameraHomeState extends State<CameraHome> {
     );
   }
 
-  Widget _captureControlRowWidget() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      mainAxisSize: MainAxisSize.max,
-      children: <Widget>[
-        IconButton(
-          icon: const Icon(Icons.camera_alt),
-          color: Colors.blue,
-          onPressed: controller != null &&
-                  controller.value.isInitialized &&
-                  !controller.value.isRecordingVideo
-              ? onTakePictureButtonPressed
-              : null,
-        ),
-      ],
-    );
-  }
-
-  /// Display a row of toggle to select the camera (or a message if no camera is available).
-  Widget _cameraTogglesRowWidget() {
-    final List<Widget> toggles = <Widget>[];
-
-    if (cameras.isEmpty) {
-      return const Text('No camera found');
-    } else {
-      for (CameraDescription cameraDescription in cameras) {
-        print("++++++++++++++++++++++++++++++++");
-        print(controller?.description);
-        print(cameraDescription);
-        print(controller);
-        print("++++++++++++++++++++++++++++++++");
-        toggles.add(
-          SizedBox(
-            width: 90.0,
-            child: RadioListTile<CameraDescription>(
-              title: Icon(getCameraLensIcon(cameraDescription.lensDirection)),
-              groupValue: controller?.description,
-              value: cameraDescription,
-              onChanged: controller != null ? null : onNewCameraSelected,
-            ),
-          ),
-        );
-      }
-    }
-
-    return Row(children: toggles);
-  }
-
   String timestamp() => DateTime.now().millisecondsSinceEpoch.toString();
 
   void showInSnackBar(String message) {
@@ -328,16 +308,11 @@ class _CameraHomeState extends State<CameraHome> {
   }
 
   initcamera() async {
-    print("0000000000000000000");
     try {
-      print("1111111111111111111");
-      print("2222222222222222222");
       isCameraInited = true;
-      print("2222222222222222222");
       onNewCameraSelected(cameras[0]);
       cameras = await availableCameras();
     } on CameraException catch (e) {
-      print("EEEEEEEEEEEEEEEE");
       logError(e.code, e.description);
     }
   }
@@ -348,14 +323,9 @@ class _CameraHomeState extends State<CameraHome> {
    * @return: void
    */
   void onNewCameraSelected(CameraDescription cameraDescription) async {
-    print("2222222222222222222");
     if (controller != null) {
-      print("333333333333333333");
       await controller.dispose();
     }
-    print("@@@@@@@@@@@@@@@@@");
-    print(cameraDescription);
-    print("@@@@@@@@@@@@@@@@@");
     controller = CameraController(cameraDescription, ResolutionPreset.high);
 
     controller.addListener(() {
