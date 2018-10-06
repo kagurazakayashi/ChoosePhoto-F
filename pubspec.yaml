@@ -22,7 +22,7 @@ dependencies:
   camera: ^0.2.6 #添加相机库
   # video_player: ^0.7.2
   path_provider: ^0.4.1
-
+  image: ^2.0.5
 
 dev_dependencies:
   flutter_test:

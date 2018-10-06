@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:choosephoto/settings.dart';
+import 'package:choosephoto/thumbnail.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -39,7 +41,7 @@ class _CameraHomeState extends State<CameraHome> {
   VoidCallback videoPlayerListener;
 
   var widthcount = 2;
-  var dataarr = ["没有照片"];
+  var imagedata = ["没有照片"];
   var imgdir = "";
   int navigationBarSelectedIndex = 0;
   var nowcamera;
@@ -52,7 +54,6 @@ class _CameraHomeState extends State<CameraHome> {
   var isBrowserMode = false;
   var cameraHeight = 0.0;
   var photolistHeight = 0.0;
-  var thumbnailsize;
   var cameraBorder = 1.0;
 
   //controller?.description 当前摄像头
@@ -65,7 +66,7 @@ class _CameraHomeState extends State<CameraHome> {
     listfiles();
     navigationBarSelectedIndex = 2;
     allcamera = cameras.length;
-        print("启动摄像头 ${oldcamera.toString()}");
+    print("启动摄像头 ${oldcamera.toString()}");
     onNewCameraSelected(cameras[oldcamera]);
     super.initState();
   }
@@ -89,8 +90,8 @@ class _CameraHomeState extends State<CameraHome> {
                 Expanded(
                   child: Container(
                     child: Center(
-                        child: _cameraPreviewWidget(),
-                      ),
+                      child: _cameraPreviewWidget(),
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black,
                       // border: Border.all(
@@ -157,7 +158,7 @@ class _CameraHomeState extends State<CameraHome> {
     // });
     switch (index) {
       case 0: //切换
-      toolbtnChangeCamera();
+        toolbtnChangeCamera();
         break;
       case 1: //浏览
         isBrowserMode = true;
@@ -167,35 +168,35 @@ class _CameraHomeState extends State<CameraHome> {
         toolbtnTakePhoto();
         break;
       case 3: //清空
-
+        deletefile();
         break;
       case 4: //设置
-
+        toolbtnSetting();
         break;
       default:
     }
   }
 
   void toolbtnChangeCamera() {
-        // print(controller.value.isInitialized);
-        // nowcamera = new CameraDescription();
-        //controller?.description 当前摄像头
-        //cameras 摄像头列表
-        // print(controller);
-        if (isCameraInited) {
-          oldcamera++;
-          if (oldcamera >= allcamera) oldcamera = 0;
-          // if (controller.description == cameras[0]) {
-          //   onNewCameraSelected(cameras[1]);
-          // } else {
-          //   onNewCameraSelected(cameras[0]);
-          // }
-        print("启动摄像头 ${oldcamera.toString()}");
-          onNewCameraSelected(cameras[oldcamera]);
-        } else {
-          toolbtnTakePhoto();
-        }
-        navigationBarSelectedIndex = 2;
+    // print(controller.value.isInitialized);
+    // nowcamera = new CameraDescription();
+    //controller?.description 当前摄像头
+    //cameras 摄像头列表
+    // print(controller);
+    if (isCameraInited) {
+      oldcamera++;
+      if (oldcamera >= allcamera) oldcamera = 0;
+      // if (controller.description == cameras[0]) {
+      //   onNewCameraSelected(cameras[1]);
+      // } else {
+      //   onNewCameraSelected(cameras[0]);
+      // }
+      print("启动摄像头 ${oldcamera.toString()}");
+      onNewCameraSelected(cameras[oldcamera]);
+    } else {
+      toolbtnTakePhoto();
+    }
+    navigationBarSelectedIndex = 2;
   }
 
   void toolbtnBrowser() {
@@ -236,6 +237,13 @@ class _CameraHomeState extends State<CameraHome> {
     navigationBarSelectedIndex = 2;
   }
 
+  void toolbtnSetting() {
+    Navigator.push(context,
+        new MaterialPageRoute(builder: (BuildContext context) {
+      return new SettingPage();
+    }));
+  }
+
   /*
    * @msg: 创建图片列表
    * @return: Widget
@@ -247,8 +255,20 @@ class _CameraHomeState extends State<CameraHome> {
       crossAxisSpacing: 5.0,
       childAspectRatio: 1.0,
       crossAxisCount: widthcount,
-      children: dataarr.map((var nowdata) {
-        return nowdata != "没有照片" ? Image.file(File(nowdata)) : Text(nowdata);
+      children: imagedata.map((var nowdata) {
+        return nowdata != "没有照片"
+            ? GestureDetector(
+                onTap: () {
+                  Navigator.push(context,
+                      new MaterialPageRoute(builder: (BuildContext context) {
+                    return Scaffold(
+
+                    );
+                  }));
+                },
+                child: Image.file(File(nowdata)),
+              )
+            : Text(nowdata);
       }).toList(),
     );
   }
@@ -352,46 +372,56 @@ class _CameraHomeState extends State<CameraHome> {
    */
   void onTakePictureButtonPressed() {
     takePicture().then((String filePath) {
+      String thumbnailpath;
       if (mounted) {
         setState(() {
           imagePath = filePath;
-          if (dataarr.length == 1 && dataarr[0] == "没有照片") {
-            dataarr[0] = filePath;
+          thumbnailpath = imagepathtothumbnail(filePath);
+          int ts =
+              int.parse((windowWidth / widthcount - 10).toStringAsFixed(0));
+          print("********************");
+          print(ts);
+          print("********************");
+          thumbnail(filePath, thumbnailpath, ts);
+          if (imagedata[0] == "没有照片") {
+            imagedata[0] = thumbnailpath;
           } else {
-            dataarr.add(filePath);
+            imagedata.add(thumbnailpath);
           }
         });
-        if (filePath != null) showInSnackBar('Picture saved to $filePath');
+        if (thumbnailpath != null)
+          showInSnackBar('Picture saved to $thumbnailpath');
       }
     });
   }
 
   /*
   * @msg: 取得临时文件夹中的照片
-  * @return: void (保存至属性 dataarr )
+  * @return: void (保存至属性 imagedata )
   */
   listfiles() async {
     final Directory extDir = await getApplicationDocumentsDirectory();
-    final String dirPath = '${extDir.path}/Pictures/flutter_test';
+    final String dirPath = '${extDir.path}/Pictures/images';
+    final String dirPaththumbnail = '${extDir.path}/Pictures/thumbnail';
     await Directory(dirPath).create(recursive: true);
-    var dir = Directory(dirPath);
-    var dirList = dir.list();
+    await Directory(dirPaththumbnail).create(recursive: true);
+    var dirthumbnail = Directory(dirPaththumbnail);
+    var dirthumbnailList = dirthumbnail.list();
     try {
-      await for (FileSystemEntity f in dirList) {
-        // i++;
+      await for (FileSystemEntity f in dirthumbnailList) {
         if (f is File) {
-          if (dataarr[0] == "没有照片") {
+          if (imagedata[0] == "没有照片") {
             setState(() {
-              dataarr[0] = f.path.toString();
+              imagedata[0] = f.path.toString();
             });
           } else {
             setState(() {
-              dataarr.add(f.path.toString());
+              imagedata.add(f.path.toString());
             });
           }
-          print('已有文件 ${f.path}');
+          print('文件image: ${f.path}');
         } else if (f is Directory) {
-          print('已有文件夹 ${f.path}');
+          print('文件夹 ${f.path}');
         }
       }
     } catch (e) {
@@ -410,12 +440,13 @@ class _CameraHomeState extends State<CameraHome> {
       return null;
     }
     final Directory extDir = await getApplicationDocumentsDirectory();
-    final String dirPath = '${extDir.path}/Pictures/flutter_test';
+    final String dirPath = '${extDir.path}/Pictures/images';
+    final String dirPaththumbnail = '${extDir.path}/Pictures/thumbnail';
     await Directory(dirPath).create(recursive: true);
-    final String filePath = '$dirPath/${timestamp()}.jpg';
+    await Directory(dirPaththumbnail).create(recursive: true);
+    final String filePath = '$dirPath/${timestamp()}.png';
 
     if (controller.value.isTakingPicture) {
-      // A capture is already pending, do nothing.
       return null;
     }
 
@@ -431,6 +462,34 @@ class _CameraHomeState extends State<CameraHome> {
   void _showCameraException(CameraException e) {
     logError(e.code, e.description);
     showInSnackBar('Error: ${e.code}\n${e.description}');
+  }
+
+  deletefile() async {
+    for (String f in imagedata) {
+      File file = new File(f);
+      File filei = new File(thumbnailtoimagepath(f));
+      await file.delete();
+      await filei.delete();
+    }
+    setState(() {
+      imagedata = ["没有照片"];
+    });
+  }
+
+  String imagepathtothumbnail(String imagePath) {
+    List thumbnailpatharr = imagePath.split('/');
+    thumbnailpatharr.insert(thumbnailpatharr.length - 2, "thumbnail");
+    thumbnailpatharr.removeAt(thumbnailpatharr.length - 2);
+    String thumbnailpath = thumbnailpatharr.join("/");
+    return thumbnailpath;
+  }
+
+  String thumbnailtoimagepath(String thumbnailpath) {
+    List imagePatharr = thumbnailpath.split('/');
+    imagePatharr.insert(imagePatharr.length - 2, "images");
+    imagePatharr.removeAt(imagePatharr.length - 2);
+    String imagePath = imagePatharr.join("/");
+    return imagePath;
   }
 }
 
