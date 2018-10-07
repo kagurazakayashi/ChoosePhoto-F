@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:choosephoto/settings.dart';
+import 'package:choosephoto/photoview.dart';
 import 'package:choosephoto/thumbnail.dart';
 import 'dart:async';
 import 'dart:io';
@@ -41,7 +42,7 @@ class _CameraHomeState extends State<CameraHome> {
   VoidCallback videoPlayerListener;
 
   var widthcount = 2;
-  var imagedata = ["没有照片"];
+  var imagedata = ["（没有缓存的照片）"];
   var imgdir = "";
   int navigationBarSelectedIndex = 0;
   var nowcamera;
@@ -142,7 +143,9 @@ class _CameraHomeState extends State<CameraHome> {
         ],
         currentIndex: navigationBarSelectedIndex,
         fixedColor: Colors.deepPurple,
-        onTap: navigationBarItemTapped,
+        onTap: (index) {
+          navigationBarItemTapped(index,context);
+        },
       ),
     );
   }
@@ -152,7 +155,7 @@ class _CameraHomeState extends State<CameraHome> {
    * @param {int} 按钮序号
    * @return: void
    */
-  void navigationBarItemTapped(int index) {
+  void navigationBarItemTapped(int index, BuildContext context) {
     // setState(() {
     // navigationBarSelectedIndex = index;
     // });
@@ -168,7 +171,7 @@ class _CameraHomeState extends State<CameraHome> {
         toolbtnTakePhoto();
         break;
       case 3: //清空
-        deletefile();
+        toolbtnClear(context);
         break;
       case 4: //设置
         toolbtnSetting();
@@ -191,7 +194,7 @@ class _CameraHomeState extends State<CameraHome> {
       // } else {
       //   onNewCameraSelected(cameras[0]);
       // }
-      print("启动摄像头 ${oldcamera.toString()}");
+      showInSnackBar("启动摄像头 ${oldcamera.toString()}");
       onNewCameraSelected(cameras[oldcamera]);
     } else {
       toolbtnTakePhoto();
@@ -211,7 +214,7 @@ class _CameraHomeState extends State<CameraHome> {
         isCameraInited = false;
         controller.dispose();
       }
-      print("摄像头关闭");
+      showInSnackBar("摄像头已暂停。");
       setState(() {
         cameraBorder = 0.0;
         cameraHeight = 0.0;
@@ -224,10 +227,10 @@ class _CameraHomeState extends State<CameraHome> {
     isBrowserMode = false;
     toolbtnBrowser();
     if (!isCameraInited) {
+      showInSnackBar("启动摄像头 ${oldcamera.toString()}");
       initcamera();
     } else {
       if (controller.description.name == "10") {
-        print("启动摄像头 ${oldcamera.toString()}");
         onNewCameraSelected(cameras[oldcamera]);
       } else {
         onTakePictureButtonPressed();
@@ -235,6 +238,35 @@ class _CameraHomeState extends State<CameraHome> {
       print(controller?.description);
     }
     navigationBarSelectedIndex = 2;
+  }
+
+  void toolbtnClear(BuildContext context) {
+    List<Widget> actions = [
+    FlatButton(
+      onPressed: (){
+        deletefile();
+        Navigator.pop(context); //关闭提示框
+      },
+      child: new Text("立即删除",style: TextStyle(color: Colors.red)),
+    ),
+    FlatButton(
+      onPressed: (){
+        Navigator.pop(context);
+      },
+      child: new Text("取消"),
+    )
+  ];
+
+  showDialog <void> (
+    context: context,
+    builder: (BuildContext context) {
+      return new AlertDialog(
+        title: Text("清空确认"),
+        actions: actions,
+        content: Text("将会永久删除缓存相册中的所有照片，确定吗？"),
+      );
+    }
+  );
   }
 
   void toolbtnSetting() {
@@ -256,17 +288,21 @@ class _CameraHomeState extends State<CameraHome> {
       childAspectRatio: 1.0,
       crossAxisCount: widthcount,
       children: imagedata.map((var nowdata) {
-        return nowdata != "没有照片"
-            ? GestureDetector(
-                onTap: () {
-                  Navigator.push(context,
-                      new MaterialPageRoute(builder: (BuildContext context) {
-                    return Scaffold(
-
-                    );
-                  }));
-                },
-                child: Image.file(File(nowdata)),
+        return nowdata != "（没有缓存的照片）"
+            ? Center(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(context,
+                        new MaterialPageRoute(builder: (BuildContext context) {
+                      return new PhotoPage(photopathSmall:nowdata, 
+                          photopath: thumbnailtoimagepath(nowdata));
+                    }));
+                  },
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Image.file(File(nowdata)),
+                  ),
+                ),
               )
             : Text(nowdata);
       }).toList(),
@@ -324,7 +360,10 @@ class _CameraHomeState extends State<CameraHome> {
   String timestamp() => DateTime.now().millisecondsSinceEpoch.toString();
 
   void showInSnackBar(String message) {
-    _scaffoldKey.currentState.showSnackBar(SnackBar(content: Text(message)));
+    _scaffoldKey.currentState.showSnackBar(SnackBar(
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 1),
+        content: Text(message)));
   }
 
   initcamera() async {
@@ -383,7 +422,7 @@ class _CameraHomeState extends State<CameraHome> {
           print(ts);
           print("********************");
           thumbnail(filePath, thumbnailpath, ts);
-          if (imagedata[0] == "没有照片") {
+          if (imagedata[0] == "（没有缓存的照片）") {
             imagedata[0] = thumbnailpath;
           } else {
             imagedata.add(thumbnailpath);
@@ -410,7 +449,7 @@ class _CameraHomeState extends State<CameraHome> {
     try {
       await for (FileSystemEntity f in dirthumbnailList) {
         if (f is File) {
-          if (imagedata[0] == "没有照片") {
+          if (imagedata[0] == "（没有缓存的照片）") {
             setState(() {
               imagedata[0] = f.path.toString();
             });
@@ -472,8 +511,9 @@ class _CameraHomeState extends State<CameraHome> {
       await filei.delete();
     }
     setState(() {
-      imagedata = ["没有照片"];
+      imagedata = ["（没有缓存的照片）"];
     });
+    showInSnackBar("缓存照片库已清空");
   }
 
   String imagepathtothumbnail(String imagePath) {

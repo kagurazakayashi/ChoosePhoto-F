@@ -36,12 +36,6 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text("设置"),
       ),
       body: Column(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-        },
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ),
     );
   }
 }
