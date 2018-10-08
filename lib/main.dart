@@ -63,6 +63,7 @@ class _CameraHomeState extends State<CameraHome> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   void initState() {
+    print("isAndroid = ${Platform.isAndroid}");
     cameraHeight = (windowHeight - windowtopbar - kToolbarHeight) * 0.5;
     listfiles();
     navigationBarSelectedIndex = 2;
@@ -75,7 +76,7 @@ class _CameraHomeState extends State<CameraHome> {
   @override
   Widget build(BuildContext context) {
     photolistHeight =
-        windowHeight - windowtopbar - kToolbarHeight - cameraHeight - 5.0;
+        windowHeight - windowtopbar - kToolbarHeight - cameraHeight - 6.0;
     return Scaffold(
       key: _scaffoldKey,
       body: Column(
@@ -325,36 +326,6 @@ class _CameraHomeState extends State<CameraHome> {
         child: CameraPreview(controller),
       );
     }
-  }
-
-  Widget _thumbnailWidget() {
-    return Expanded(
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: imagePath == null
-            ? null
-            : SizedBox(
-                child: Image.file(File(imagePath)),
-                width: 64.0,
-                height: 64.0,
-              ),
-      ),
-    );
-  }
-
-  Widget _thumbnailWidgetBig(String picpush, double size) {
-    return Expanded(
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: imagePath == null
-            ? null
-            : SizedBox(
-                child: Image.file(File(picpush)),
-                width: size,
-                height: size,
-              ),
-      ),
-    );
   }
 
   String timestamp() => DateTime.now().millisecondsSinceEpoch.toString();

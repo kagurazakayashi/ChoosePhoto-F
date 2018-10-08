@@ -3,11 +3,14 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:choosephoto/saveimage.dart';
+// import 'package:simple_permissions/simple_permissions.dart';
+import 'package:flutter/services.dart';
 
 class PhotoPage extends StatelessWidget {
   final String photopathSmall;
   final String photopath;
-  const PhotoPage({this.photopathSmall,this.photopath});
+  const PhotoPage({this.photopathSmall, this.photopath});
 //child: Image.file(File(nowdata)),
   @override
   Widget build(BuildContext context) {
@@ -32,6 +35,10 @@ class _MyHomePageState extends State<MyHomePage> {
   final windowtopbar = MediaQueryData.fromWindow(window).padding.top;
   int navigationBarSelectedIndex = 0;
 
+  bool isSuccess;
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -42,11 +49,12 @@ class _MyHomePageState extends State<MyHomePage> {
     print("放大浏览 ${widget.photopath}");
     print("缩略图 ${widget.photopathSmall}");
     return Scaffold(
+      key: _scaffoldKey,
       body: Column(
         children: <Widget>[
           Container(
               margin: const EdgeInsets.symmetric(vertical: 0.0),
-              height: (windowHeight - kBottomNavigationBarHeight - 5.0),
+              height: (windowHeight - kBottomNavigationBarHeight - 6.0),
               child: PhotoView(
                 imageProvider: AssetImage(widget.photopath),
               ))
@@ -93,15 +101,52 @@ class _MyHomePageState extends State<MyHomePage> {
       case 0: //返回
         Navigator.pop(context);
         break;
-      case 1: //复位
+      // case 1: //复位
+      //   break;
+      case 1: //保存
+        savepic();
         break;
-      case 2: //保存
+      case 2: //分享
         break;
-      case 3: //分享
-        break;
-      case 4: //删除
+      case 3: //删除
         break;
       default:
     }
+  }
+
+  // getPermissionStatus() async {
+  //   final res = await SimplePermissions.getPermissionStatus(Permission.values[3]);
+  //   print("permission status is " + res.toString());
+  // }
+
+  static const platform = const MethodChannel("samples.flutter.io/battery");
+  void savepic() {
+    // getPermissionStatus();
+    _getBatteryLevel();
+  }
+
+  Future<Null> _getBatteryLevel() async {
+    String result;
+    try {
+      result =
+          await platform.invokeMethod('saveToPhotosAlbum', <String, dynamic>{
+        'file': widget.photopath,
+      });
+    } on PlatformException catch (e) {
+      showInSnackBar("照片存储失败：${e.message}");
+    }
+    // if (result == "Y") {
+    //   showInSnackBar("已将照片保存到您的手机相册");
+    // } else {
+    //   showInSnackBar("照片存储失败，请检查权限设置");
+    // }
+    print("原生返回结果：${result.toString()}");
+  }
+
+  void showInSnackBar(String message) {
+    _scaffoldKey.currentState.showSnackBar(SnackBar(
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 3),
+        content: Text(message)));
   }
 }
