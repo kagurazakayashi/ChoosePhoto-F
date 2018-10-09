@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:choosephoto/settings.dart';
 import 'package:choosephoto/photoview.dart';
 import 'package:choosephoto/thumbnail.dart';
+import 'package:simple_permissions/simple_permissions.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -48,6 +50,7 @@ class _CameraHomeState extends State<CameraHome> {
   var nowcamera;
   var allcamera;
   var oldcamera = 0;
+  var waitcamera = '等待摄像头启动';
 
   final windowWidth = MediaQueryData.fromWindow(window).size.width;
   final windowHeight = MediaQueryData.fromWindow(window).size.height;
@@ -64,13 +67,23 @@ class _CameraHomeState extends State<CameraHome> {
   @override
   void initState() {
     print("isAndroid = ${Platform.isAndroid}");
+    // getPermissionStatus();
     cameraHeight = (windowHeight - windowtopbar - kToolbarHeight) * 0.5;
     listfiles();
     navigationBarSelectedIndex = 2;
     allcamera = cameras.length;
+    //检测摄像头
+    requestPermission(2);
+
+    super.initState();
+  }
+
+  void startcamera() {
+    setState(() {
+      waitcamera = "等待摄像头启动";
+    });
     print("启动摄像头 ${oldcamera.toString()}");
     onNewCameraSelected(cameras[oldcamera]);
-    super.initState();
   }
 
   @override
@@ -145,7 +158,7 @@ class _CameraHomeState extends State<CameraHome> {
         currentIndex: navigationBarSelectedIndex,
         fixedColor: Colors.deepPurple,
         onTap: (index) {
-          navigationBarItemTapped(index,context);
+          navigationBarItemTapped(index, context);
         },
       ),
     );
@@ -181,6 +194,44 @@ class _CameraHomeState extends State<CameraHome> {
     }
   }
 
+  //获取文件读写权限
+  requestPermissionall() async {
+    final camera =
+        await SimplePermissions.requestPermission(Permission.values[2]);
+    print("2相机访问权限：${camera.toString()}");
+    final photolibrary =
+        await SimplePermissions.requestPermission(Permission.values[3]);
+    print("3相册访问权限：${photolibrary.toString()}");
+    final write =
+        await SimplePermissions.requestPermission(Permission.values[4]);
+    print("4文件写入权限：${write.toString()}");
+    final read =
+        await SimplePermissions.requestPermission(Permission.values[5]);
+    print("5文件读取权限：${read.toString()}");
+  }
+
+  requestPermission(int valid) async {
+    final nowper =
+        await SimplePermissions.requestPermission(Permission.values[valid]);
+    print("设置 ${valid.toString()} 的访问权限：${nowper.toString()}");
+    checkPermission(valid);
+  }
+
+  checkPermission(int valid) async {
+    bool nowper =
+        await SimplePermissions.checkPermission(Permission.values[valid]);
+    print("检查 ${valid.toString()} 的访问权限：${nowper.toString()}");
+    if (valid == 2) {
+      if (nowper) {
+        startcamera();
+      } else {
+        setState(() {
+          waitcamera = "未获得摄像头权限";
+        });
+      }
+    }
+  }
+
   void toolbtnChangeCamera() {
     // print(controller.value.isInitialized);
     // nowcamera = new CameraDescription();
@@ -195,8 +246,7 @@ class _CameraHomeState extends State<CameraHome> {
       // } else {
       //   onNewCameraSelected(cameras[0]);
       // }
-      showInSnackBar("启动摄像头 ${oldcamera.toString()}");
-      onNewCameraSelected(cameras[oldcamera]);
+      requestPermission(2);
     } else {
       toolbtnTakePhoto();
     }
@@ -225,49 +275,52 @@ class _CameraHomeState extends State<CameraHome> {
   }
 
   void toolbtnTakePhoto() {
-    isBrowserMode = false;
-    toolbtnBrowser();
-    if (!isCameraInited) {
-      showInSnackBar("启动摄像头 ${oldcamera.toString()}");
-      initcamera();
+    if (waitcamera != '等待摄像头启动') {
+      requestPermission(2);
     } else {
-      if (controller.description.name == "10") {
-        onNewCameraSelected(cameras[oldcamera]);
+      toolbtnBrowser();
+      if (!isCameraInited) {
+        showInSnackBar("启动摄像头 ${oldcamera.toString()}");
+        initcamera();
       } else {
-        onTakePictureButtonPressed();
+        if (controller.description.name == "10") {
+          onNewCameraSelected(cameras[oldcamera]);
+        } else {
+          onTakePictureButtonPressed();
+        }
+        print(controller?.description);
       }
-      print(controller?.description);
     }
-    navigationBarSelectedIndex = 2;
+      isBrowserMode = false;
+      navigationBarSelectedIndex = 2;
   }
 
   void toolbtnClear(BuildContext context) {
     List<Widget> actions = [
-    FlatButton(
-      onPressed: (){
-        deletefile();
-        Navigator.pop(context); //关闭提示框
-      },
-      child: new Text("立即删除",style: TextStyle(color: Colors.red)),
-    ),
-    FlatButton(
-      onPressed: (){
-        Navigator.pop(context);
-      },
-      child: new Text("取消"),
-    )
-  ];
+      FlatButton(
+        onPressed: () {
+          deletefile();
+          Navigator.pop(context); //关闭提示框
+        },
+        child: new Text("立即删除", style: TextStyle(color: Colors.red)),
+      ),
+      FlatButton(
+        onPressed: () {
+          Navigator.pop(context);
+        },
+        child: new Text("取消"),
+      )
+    ];
 
-  showDialog <void> (
-    context: context,
-    builder: (BuildContext context) {
-      return new AlertDialog(
-        title: Text("清空确认"),
-        actions: actions,
-        content: Text("将会永久删除缓存相册中的所有照片，确定吗？"),
-      );
-    }
-  );
+    showDialog<void>(
+        context: context,
+        builder: (BuildContext context) {
+          return new AlertDialog(
+            title: Text("清空确认"),
+            actions: actions,
+            content: Text("将会永久删除缓存相册中的所有照片，确定吗？"),
+          );
+        });
   }
 
   void toolbtnSetting() {
@@ -295,13 +348,16 @@ class _CameraHomeState extends State<CameraHome> {
                   onTap: () {
                     Navigator.push(context,
                         new MaterialPageRoute(builder: (BuildContext context) {
-                      return new PhotoPage(photopathSmall:nowdata, 
+                      return new PhotoPage(
+                          photopathSmall: nowdata,
                           photopath: thumbnailtoimagepath(nowdata));
                     }));
                   },
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: Image.file(File(nowdata)),
+                  child: Container(
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: Image.file(File(nowdata)),
+                    ),
                   ),
                 ),
               )
@@ -312,8 +368,8 @@ class _CameraHomeState extends State<CameraHome> {
 
   Widget _cameraPreviewWidget() {
     if (controller == null || !controller.value.isInitialized) {
-      return const Text(
-        '等待摄像头启动',
+      return Text(
+        waitcamera,
         style: TextStyle(
           color: Colors.white,
           fontSize: 24.0,
@@ -340,7 +396,7 @@ class _CameraHomeState extends State<CameraHome> {
   initcamera() async {
     try {
       isCameraInited = true;
-      onNewCameraSelected(cameras[0]);
+      requestPermission(2);
       cameras = await availableCameras();
     } on CameraException catch (e) {
       logError(e.code, e.description);
@@ -399,8 +455,11 @@ class _CameraHomeState extends State<CameraHome> {
             imagedata.add(thumbnailpath);
           }
         });
-        if (thumbnailpath != null)
-          showInSnackBar('Picture saved to $thumbnailpath');
+        if (thumbnailpath == null) {
+          showInSnackBar('拍摄失败 $thumbnailpath');
+        } else {
+          showInSnackBar('拍摄成功 $thumbnailpath');
+        }
       }
     });
   }
@@ -454,7 +513,7 @@ class _CameraHomeState extends State<CameraHome> {
     final String dirPaththumbnail = '${extDir.path}/Pictures/thumbnail';
     await Directory(dirPath).create(recursive: true);
     await Directory(dirPaththumbnail).create(recursive: true);
-    final String filePath = '$dirPath/${timestamp()}.png';
+    final String filePath = '$dirPath/${timestamp()}.jpg';
 
     if (controller.value.isTakingPicture) {
       return null;
@@ -507,7 +566,12 @@ class _CameraHomeState extends State<CameraHome> {
 /*
  * @msg: 初始化
  */
+bool rp = false;
+String mas = "";
+
 class CameraApp extends StatelessWidget {
+  void initState() {}
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

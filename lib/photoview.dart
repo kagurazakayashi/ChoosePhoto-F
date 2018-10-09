@@ -2,10 +2,13 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:choosephoto/saveimage.dart';
 // import 'package:simple_permissions/simple_permissions.dart';
+import 'package:choosephoto/thumbnail.dart';
 import 'package:flutter/services.dart';
+import 'package:simple_permissions/simple_permissions.dart';
 
 class PhotoPage extends StatelessWidget {
   final String photopathSmall;
@@ -114,18 +117,30 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  // getPermissionStatus() async {
-  //   final res = await SimplePermissions.getPermissionStatus(Permission.values[3]);
-  //   print("permission status is " + res.toString());
-  // }
-
   static const platform = const MethodChannel("samples.flutter.io/battery");
   void savepic() {
     // getPermissionStatus();
-    _getBatteryLevel();
+    if (Platform.isAndroid) {
+      requestPermission(4);
+    } else if (Platform.isIOS) {
+      requestPermission(3);
+    } else {
+      showInSnackBar("暂不支持当前操作系统保存图片");
+    }
   }
 
-  Future<Null> _getBatteryLevel() async {
+  Future savepictoandroid() async {
+    final Directory extDir3 = await getExternalStorageDirectory();
+    final String dirPath = '${extDir3.path}/DCIM/choosephoto';
+    await Directory(dirPath).create(recursive: true);
+    final picname = dirPath +
+        "/" +
+        DateTime.now().millisecondsSinceEpoch.toString() +
+        ".jpg";
+    copypicture(widget.photopath, picname);
+  }
+
+  Future<Null> savepictoios() async {
     String result;
     try {
       result =
@@ -135,12 +150,33 @@ class _MyHomePageState extends State<MyHomePage> {
     } on PlatformException catch (e) {
       showInSnackBar("照片存储失败：${e.message}");
     }
-    // if (result == "Y") {
-    //   showInSnackBar("已将照片保存到您的手机相册");
-    // } else {
-    //   showInSnackBar("照片存储失败，请检查权限设置");
-    // }
     print("原生返回结果：${result.toString()}");
+  }
+
+  requestPermission(int valid) async {
+    final nowper =
+        await SimplePermissions.requestPermission(Permission.values[valid]);
+    print("设置 ${valid.toString()} 的访问权限：${nowper.toString()}");
+    checkPermission(valid);
+  }
+
+  checkPermission(int valid) async {
+    bool nowper =
+        await SimplePermissions.checkPermission(Permission.values[valid]);
+    print("检查 ${valid.toString()} 的访问权限：${nowper.toString()}");
+    if (valid == 4) {
+      if (nowper) {
+        savepictoandroid();
+      } else {
+        showInSnackBar("未获得照片文件写入权限");
+      }
+    } else if (valid == 3) {
+      if (nowper) {
+        savepictoios();
+      } else {
+        showInSnackBar("未获得系统相册写入权限");
+      }
+    }
   }
 
   void showInSnackBar(String message) {
