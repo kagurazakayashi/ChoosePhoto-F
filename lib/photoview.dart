@@ -4,16 +4,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:choosephoto/saveimage.dart';
-// import 'package:simple_permissions/simple_permissions.dart';
+import 'package:image_share/image_share.dart';
 import 'package:choosephoto/thumbnail.dart';
 import 'package:flutter/services.dart';
 import 'package:simple_permissions/simple_permissions.dart';
 
 class PhotoPage extends StatelessWidget {
-  final String photopathSmall;
-  final String photopath;
-  const PhotoPage({this.photopathSmall, this.photopath});
+  final List<String> photopath;
+  const PhotoPage({this.photopath});
 //child: Image.file(File(nowdata)),
   @override
   Widget build(BuildContext context) {
@@ -24,9 +22,8 @@ class PhotoPage extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.photopathSmall, this.photopath}) : super(key: key);
-  final String photopathSmall;
-  final String photopath;
+  MyHomePage({Key key, this.photopath}) : super(key: key);
+  final List<String> photopath;
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
@@ -44,13 +41,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void initState() {
+    print("放大浏览 ${widget.photopath[1]}");
+    print("缩略图 ${widget.photopath[0]}");
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    print("放大浏览 ${widget.photopath}");
-    print("缩略图 ${widget.photopathSmall}");
     return Scaffold(
       key: _scaffoldKey,
       body: Column(
@@ -59,9 +56,9 @@ class _MyHomePageState extends State<MyHomePage> {
               margin: const EdgeInsets.symmetric(vertical: 0.0),
               height: (windowHeight - kBottomNavigationBarHeight - 6.0),
               child: PhotoView(
-                imageProvider: AssetImage(widget.photopath),
+                imageProvider: AssetImage(widget.photopath[1]),
               ))
-          // Image.file(File(widget.photopath)),
+          // Image.file(File(widget.photopath[1])),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -110,8 +107,10 @@ class _MyHomePageState extends State<MyHomePage> {
         savepic();
         break;
       case 2: //分享
+        shareImage(widget.photopath[1]);
         break;
       case 3: //删除
+        toolbtnDelete(context);
         break;
       default:
     }
@@ -129,6 +128,42 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  void toolbtnDelete(BuildContext context) {
+    List<Widget> actions = [
+      FlatButton(
+        onPressed: () {
+          deletefile();
+          Navigator.pop(context); //关闭提示框
+        },
+        child: new Text("立即删除", style: TextStyle(color: Colors.red)),
+      ),
+      FlatButton(
+        onPressed: () {
+          Navigator.pop(context);
+        },
+        child: new Text("取消"),
+      )
+    ];
+
+    showDialog<void>(
+        context: context,
+        builder: (BuildContext context) {
+          return new AlertDialog(
+            title: Text("清空确认"),
+            actions: actions,
+            content: Text("将会永久删除此照片，确定吗？"),
+          );
+        });
+  }
+
+  deletefile() async {
+    File file = new File(widget.photopath[1]);
+    await file.delete();
+    File filei = new File(widget.photopath[0]);
+    await filei.delete();
+    Navigator.pop(context,"d");
+  }
+
   Future savepictoandroid() async {
     final Directory extDir3 = await getExternalStorageDirectory();
     final String dirPath = '${extDir3.path}/DCIM/choosephoto';
@@ -137,7 +172,7 @@ class _MyHomePageState extends State<MyHomePage> {
         "/" +
         DateTime.now().millisecondsSinceEpoch.toString() +
         ".jpg";
-    copypicture(widget.photopath, picname);
+    savepicture(widget.photopath[1], picname);
   }
 
   Future<Null> savepictoios() async {
@@ -145,7 +180,7 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       result =
           await platform.invokeMethod('saveToPhotosAlbum', <String, dynamic>{
-        'file': widget.photopath,
+        'file': widget.photopath[1],
       });
     } on PlatformException catch (e) {
       showInSnackBar("照片存储失败：${e.message}");
@@ -184,5 +219,9 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Colors.blue,
         duration: Duration(seconds: 3),
         content: Text(message)));
+  }
+
+  Future<void> shareImage(String imagepath) async {
+    await ImageShare.shareImage(filePath: imagepath);
   }
 }

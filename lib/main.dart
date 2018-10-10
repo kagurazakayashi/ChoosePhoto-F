@@ -7,7 +7,6 @@ import 'package:choosephoto/settings.dart';
 import 'package:choosephoto/photoview.dart';
 import 'package:choosephoto/thumbnail.dart';
 import 'package:simple_permissions/simple_permissions.dart';
-import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -69,7 +68,7 @@ class _CameraHomeState extends State<CameraHome> {
     print("isAndroid = ${Platform.isAndroid}");
     // getPermissionStatus();
     cameraHeight = (windowHeight - windowtopbar - kToolbarHeight) * 0.5;
-    listfiles();
+    listfiles(false);
     navigationBarSelectedIndex = 2;
     allcamera = cameras.length;
     //检测摄像头
@@ -188,6 +187,7 @@ class _CameraHomeState extends State<CameraHome> {
         toolbtnClear(context);
         break;
       case 4: //设置
+        listfiles(true);
         toolbtnSetting();
         break;
       default:
@@ -278,6 +278,7 @@ class _CameraHomeState extends State<CameraHome> {
     if (waitcamera != '等待摄像头启动') {
       requestPermission(2);
     } else {
+    isBrowserMode = false;
       toolbtnBrowser();
       if (!isCameraInited) {
         showInSnackBar("启动摄像头 ${oldcamera.toString()}");
@@ -291,8 +292,7 @@ class _CameraHomeState extends State<CameraHome> {
         print(controller?.description);
       }
     }
-      isBrowserMode = false;
-      navigationBarSelectedIndex = 2;
+    navigationBarSelectedIndex = 2;
   }
 
   void toolbtnClear(BuildContext context) {
@@ -346,14 +346,18 @@ class _CameraHomeState extends State<CameraHome> {
             ? Center(
                 child: GestureDetector(
                   onTap: () {
-                    Navigator.push(context,
+                    Navigator.push<String>(context,
                         new MaterialPageRoute(builder: (BuildContext context) {
                       return new PhotoPage(
-                          photopathSmall: nowdata,
-                          photopath: thumbnailtoimagepath(nowdata));
-                    }));
+                          photopath: [nowdata, thumbnailtoimagepath(nowdata)]);
+                    })).then((String presult) {
+                      if (presult == "d") {
+                        listfiles(true);
+                      }
+                    });
                   },
                   child: Container(
+                    color: Colors.blue,
                     child: FittedBox(
                       fit: BoxFit.contain,
                       child: Image.file(File(nowdata)),
@@ -386,9 +390,9 @@ class _CameraHomeState extends State<CameraHome> {
 
   String timestamp() => DateTime.now().millisecondsSinceEpoch.toString();
 
-  void showInSnackBar(String message) {
+  void showInSnackBar(String message, [Color barcolor = Colors.blue]) {
     _scaffoldKey.currentState.showSnackBar(SnackBar(
-        backgroundColor: Colors.blue,
+        backgroundColor: barcolor,
         duration: Duration(seconds: 1),
         content: Text(message)));
   }
@@ -445,21 +449,23 @@ class _CameraHomeState extends State<CameraHome> {
           thumbnailpath = imagepathtothumbnail(filePath);
           int ts =
               int.parse((windowWidth / widthcount - 10).toStringAsFixed(0));
-          print("********************");
-          print(ts);
-          print("********************");
-          thumbnail(filePath, thumbnailpath, ts);
-          if (imagedata[0] == "（没有缓存的照片）") {
-            imagedata[0] = thumbnailpath;
-          } else {
-            imagedata.add(thumbnailpath);
-          }
+          showInSnackBar("拍摄完成，正在后台处理照片……");
+          savethumbnail(filePath, thumbnailpath, ts).then((String ret) {
+            print("重新载入缩略图列表……");
+            listfiles(true);
+            if (imagedata[0] == "（没有缓存的照片）") {
+              imagedata[0] = thumbnailpath;
+            } else {
+              imagedata.add(thumbnailpath);
+            }
+            showInSnackBar("照片已保存到缓存图片库。", Colors.green);
+          });
         });
-        if (thumbnailpath == null) {
-          showInSnackBar('拍摄失败 $thumbnailpath');
-        } else {
-          showInSnackBar('拍摄成功 $thumbnailpath');
-        }
+        // if (thumbnailpath == null) {
+        //   showInSnackBar('拍摄失败 $thumbnailpath');
+        // } else {
+        //   showInSnackBar('拍摄成功 $thumbnailpath');
+        // }
       }
     });
   }
@@ -468,7 +474,7 @@ class _CameraHomeState extends State<CameraHome> {
   * @msg: 取得临时文件夹中的照片
   * @return: void (保存至属性 imagedata )
   */
-  listfiles() async {
+  listfiles(bool isreload) async {
     final Directory extDir = await getApplicationDocumentsDirectory();
     final String dirPath = '${extDir.path}/Pictures/images';
     final String dirPaththumbnail = '${extDir.path}/Pictures/thumbnail';
@@ -476,6 +482,12 @@ class _CameraHomeState extends State<CameraHome> {
     await Directory(dirPaththumbnail).create(recursive: true);
     var dirthumbnail = Directory(dirPaththumbnail);
     var dirthumbnailList = dirthumbnail.list();
+    if (isreload) {
+      setState(() {
+        imagedata.clear();
+        imagedata.add("（没有缓存的照片）");
+      });
+    }
     try {
       await for (FileSystemEntity f in dirthumbnailList) {
         if (f is File) {
@@ -493,6 +505,7 @@ class _CameraHomeState extends State<CameraHome> {
           print('文件夹 ${f.path}');
         }
       }
+      print("imagedata = ${imagedata.toString()}");
     } catch (e) {
       print("错误：取得临时文件夹中的照片没有成功。");
       print(e.toString());
@@ -505,7 +518,7 @@ class _CameraHomeState extends State<CameraHome> {
    */
   Future<String> takePicture() async {
     if (!controller.value.isInitialized) {
-      showInSnackBar('Error: select a camera first.');
+      showInSnackBar('错误：摄像头目前不可用。',Colors.red);
       return null;
     }
     final Directory extDir = await getApplicationDocumentsDirectory();
@@ -521,16 +534,16 @@ class _CameraHomeState extends State<CameraHome> {
 
     try {
       await controller.takePicture(filePath);
+      return filePath;
     } on CameraException catch (e) {
       _showCameraException(e);
       return null;
     }
-    return filePath;
   }
 
   void _showCameraException(CameraException e) {
     logError(e.code, e.description);
-    showInSnackBar('Error: ${e.code}\n${e.description}');
+    showInSnackBar('错误： ${e.code}\n${e.description}',Colors.red);
   }
 
   deletefile() async {
@@ -543,7 +556,7 @@ class _CameraHomeState extends State<CameraHome> {
     setState(() {
       imagedata = ["（没有缓存的照片）"];
     });
-    showInSnackBar("缓存照片库已清空");
+    showInSnackBar("缓存照片库已清空",Colors.green);
   }
 
   String imagepathtothumbnail(String imagePath) {
