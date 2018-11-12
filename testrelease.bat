@@ -1,0 +1,1 @@
+adb uninstall org.yashi.choosephoto & flutter build apk & adb install build\app\outputs\apk\release\app-release.apk

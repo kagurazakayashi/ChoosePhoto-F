@@ -35,7 +35,11 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         title: Text("设置"),
       ),
-      body: Column(),
+      body: Column(
+        children: <Widget>[
+          Text("设置功能尚未制作完成。")
+        ],
+      ),
     );
   }
 }

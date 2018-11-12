@@ -157,10 +157,10 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   deletefile() async {
-    File file = new File(widget.photopath[1]);
+    // File filei = new File(widget.photopath[1]);
+    // await filei.delete();
+    File file = new File(widget.photopath[0]);
     await file.delete();
-    File filei = new File(widget.photopath[0]);
-    await filei.delete();
     Navigator.pop(context,"d");
   }
 

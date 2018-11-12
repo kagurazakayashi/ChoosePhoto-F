@@ -69,3 +69,8 @@ build/
 !**/ios/**/default.pbxuser
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
+
+/icon/AndroidIcons
+/icon/AppIcon.appiconset
+/android/key.properties
+/android/*.jks
